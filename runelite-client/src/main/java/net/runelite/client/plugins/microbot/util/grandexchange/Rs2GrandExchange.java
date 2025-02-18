@@ -3,7 +3,6 @@ package net.runelite.client.plugins.microbot.util.grandexchange;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.runelite.api.GrandExchangeOfferState;
-import net.runelite.api.MenuAction;
 import net.runelite.api.NPC;
 import net.runelite.api.widgets.ComponentID;
 import net.runelite.api.widgets.Widget;
@@ -12,9 +11,9 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
+
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
-import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
@@ -22,7 +21,6 @@ import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import org.apache.commons.lang3.tuple.Pair;
 
-import java.awt.*;
 import java.io.StringReader;
 import java.net.*;
 import java.net.http.HttpClient;
@@ -132,13 +130,17 @@ public class Rs2GrandExchange {
             sleepUntil(Rs2GrandExchange::isOfferTextVisible, 5000);
             sleepUntil(() -> Rs2Widget.hasWidget("What would you like to buy?"));
             Rs2Keyboard.typeString(searchTerm);
-            sleepUntil(() -> !Rs2Widget.hasWidget("Start typing the name"), 5000); //GE Search Results
-            sleep(1200);
+            sleepUntil(() -> !Rs2Widget.hasWidget("Start typing the name"), 5000);
             Pair<Widget, Integer> itemResult = getSearchResultWidget(itemName);
+           /* if (itemResult == null) {
+                Rs2Widget.clickWidget(itemName);
+                sleepUntil(() -> getPricePerItemButton_X() != null);
+            }*/
             if (itemResult != null) {
                 Rs2Widget.clickWidgetFast(itemResult.getLeft(), itemResult.getRight(), 1);
                 sleepUntil(() -> getPricePerItemButton_X() != null);
             }
+
             Widget pricePerItemButtonX = getPricePerItemButton_X();
             if (pricePerItemButtonX != null) {
                 System.out.println("tried to click widget");
@@ -192,7 +194,7 @@ public class Rs2GrandExchange {
      * @param quantity
      * @return
      */
-    public static boolean buyItemAbove5Percent(String itemName, int quantity) {
+    public static boolean buyItemAbove5Percent(String itemName, int quantity, int id) {
         try {
             if (!isOpen()) {
                 openExchange();
@@ -211,7 +213,8 @@ public class Rs2GrandExchange {
             sleep(1200, 1600);
             Pair<Widget, Integer> itemResult = getSearchResultWidget(itemName);
             if (itemResult != null) {
-                Rs2Widget.clickWidgetFast(itemResult.getLeft(), itemResult.getRight(), 1);
+                Rs2Widget.clickWidget(id);
+                sleep(1500);
                 sleepUntil(() -> !Rs2Widget.hasWidget("Choose an item..."));
                 sleep(600, 1600);
             }
@@ -261,7 +264,7 @@ public class Rs2GrandExchange {
      * @param price    price of the item to sell
      * @return
      */
-    public static boolean sellItem(String itemName, int quantity, int price) {
+    public static boolean sellItem(int itemName, int quantity, int price) {
         try {
             if (!Rs2Inventory.hasItem(itemName)) return false;
 
@@ -397,6 +400,7 @@ public class Rs2GrandExchange {
      * Sells all the tradeable items in your inventory
      * @return
      */
+
     public static boolean sellInventory() {
         for (Rs2ItemModel item : Rs2Inventory.items()) {
 
@@ -412,69 +416,14 @@ public class Rs2GrandExchange {
         return Rs2Inventory.isEmpty();
     }
 
-    /**
-     * Aborts the offer
-     *
-     * @param name         name of the item to abort offer on
-     * @param collectToBank collect the item to the bank
-     * @return true if the offer has been aborted
-     */
-    public static boolean abortOffer(String name, boolean collectToBank) {
-        if (useGrandExchange()) return false;
-        try {
-            for (GrandExchangeSlots slot : GrandExchangeSlots.values()) {
-                Widget parent = getSlot(slot);
-                if (parent == null) continue;
-                if(isSlotAvailable(slot)) continue; // skip if slot is empty
-                Widget child = parent.getChild(19);
-                if (child == null) continue;
-                if (child.getText().equalsIgnoreCase(name)) {
-                    Microbot.doInvoke(new NewMenuEntry("Abort offer", 2, parent.getId(), MenuAction.CC_OP.getId(), 2, -1, ""), new Rectangle(1, 1, Microbot.getClient().getCanvasWidth(), Microbot.getClient().getCanvasHeight()));
-                    sleep(1000);
-                    collect(collectToBank);
-                    return true;
-                }
-            }
-        } catch (Exception ex) {
-            System.out.println(ex.getMessage());
-        }
-        return false;
-    }
-
-    /**
-     * Aborts all offers
-     *
-     * @param collectToBank collect the items to the bank
-     * @return true if all the offers have been aborted
-     */
-    public static boolean abortAllOffers(boolean collectToBank) {
-        if (useGrandExchange()) return false;
-        try {
-            for (GrandExchangeSlots slot : GrandExchangeSlots.values()) {
-                Widget parent = getSlot(slot);
-                if (parent == null) continue;
-                if(isSlotAvailable(slot)) continue; // skip if slot is empty
-                Widget child = parent.getChild(19);
-                if (child == null) continue;
-                Microbot.doInvoke(new NewMenuEntry("Abort offer", 2, parent.getId(), MenuAction.CC_OP.getId(), 2, -1, ""), new Rectangle(1, 1, Microbot.getClient().getCanvasWidth(), Microbot.getClient().getCanvasHeight()));
-            }
-            sleep(1000);
-            collect(collectToBank);
-            return isAllSlotsEmpty();
-        } catch (Exception ex) {
-            System.out.println(ex.getMessage());
-            return false;
-        }
-    }
-
     public static Pair<Widget, Integer> getSearchResultWidget(String search) {
         Widget parent = Microbot.getClient().getWidget(ComponentID.CHATBOX_GE_SEARCH_RESULTS);
 
         if (parent == null || parent.getChildren() == null) return null;
-
         Widget child = Arrays.stream(parent.getChildren()).filter(x -> x.getText().equalsIgnoreCase(search)).findFirst().orElse(null);
 
         if (child != null) {
+
             List<Widget> children = Arrays.stream(parent.getChildren()).collect(Collectors.toList());
             int index = children.indexOf(child);
             int originalWidgetIndex = index - 1;
